@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Koreksi Nilai - SMPN 2 Cibinong</title>
+    <!-- Tailwind CSS (via CDN untuk styling instan) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome untuk Icon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .rank-1 { background-color: #FEF3C7; border-left: 5px solid #F59E0B; } /* Emas */
+        .rank-2 { background-color: #F3F4F6; border-left: 5px solid #9CA3AF; } /* Perak */
+        .rank-3 { background-color: #FFEDD5; border-left: 5px solid #B45309; } /* Perunggu */
+        
+        /* Custom Scrollbar for input grid */
+        .custom-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+
+        /* Button Selected State */
+        .btn-selected {
+            background-color: #2563EB; /* blue-600 */
+            color: white;
+            border-color: #2563EB;
+            font-weight: bold;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .btn-default {
+            background-color: white;
+            color: #4B5563; /* gray-600 */
+            border-color: #D1D5DB; /* gray-300 */
+        }
+        .btn-default:hover {
+            background-color: #F3F4F6; /* gray-100 */
+        }
+
+        /* Modal Animation */
+        .modal-enter { opacity: 0; transform: scale(0.95); }
+        .modal-enter-active { opacity: 1; transform: scale(1); transition: opacity 300ms, transform 300ms; }
+        .modal-exit { opacity: 1; transform: scale(1); }
+        .modal-exit-active { opacity: 0; transform: scale(0.95); transition: opacity 200ms, transform 200ms; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-blue-800 text-white p-4 shadow-lg sticky top-0 z-40">
+        <div class="container mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold flex items-center gap-2">
+                    <i class="fas fa-check-double"></i> 
+                    <span class="hidden sm:inline">Sistem Koreksi Digital</span>
+                    <span class="sm:hidden">SKD</span>
+                </h1>
+                <p class="text-xs text-blue-200">SMPN 2 Cibinong</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="toggleGuide()" class="bg-yellow-500 hover:bg-yellow-600 text-white text-sm px-4 py-2 rounded-full font-bold shadow-md transition flex items-center animate-bounce">
+                    <i class="fas fa-question-circle mr-2"></i> Panduan / Bantuan
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow container mx-auto p-4 md:p-6 max-w-6xl relative z-0">
+        
+        <!-- STEP 1: KONFIGURASI SOAL -->
+        <div id="view-config" class="bg-white rounded-xl shadow-md p-6">
+            <h2 class="text-2xl font-bold mb-4 border-b pb-2 text-blue-800">1. Pengaturan Soal & Nilai</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <!-- Pilihan Ganda -->
+                <div class="p-4 bg-blue-50 rounded-lg border border-blue-100">
+                    <h3 class="font-bold text-blue-700 mb-3"><i class="fas fa-list-ol mr-1"></i> Pilihan Ganda (PG)</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium">Jumlah Soal</label>
+                            <input type="number" id="cfg-pg-count" value="30" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" onchange="updateTotalScorePreview()">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium">Poin per Soal</label>
+                            <input type="number" id="cfg-pg-weight" value="2" step="0.1" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" onchange="updateTotalScorePreview()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Isian Singkat -->
+                <div class="p-4 bg-green-50 rounded-lg border border-green-100">
+                    <h3 class="font-bold text-green-700 mb-3"><i class="fas fa-pen mr-1"></i> Isian Singkat</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium">Ada Isian Singkat?</label>
+                            <select id="cfg-short-active" class="w-full p-2 border rounded" onchange="toggleInputs('short'); updateTotalScorePreview()">
+                                <option value="no">Tidak Ada</option>
+                                <option value="yes">Ada</option>
+                            </select>
+                        </div>
+                        <div id="cfg-short-inputs" class="hidden space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium">Maks Total Poin Isian</label>
+                                <input type="number" id="cfg-short-max" value="0" class="w-full p-2 border rounded focus:ring-2 focus:ring-green-500" onchange="updateTotalScorePreview()">
+                                <p class="text-xs text-gray-500 mt-1">*Masukkan total poin maksimal untuk seluruh bagian isian.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Essay -->
+                <div class="p-4 bg-orange-50 rounded-lg border border-orange-100">
+                    <h3 class="font-bold text-orange-700 mb-3"><i class="fas fa-align-left mr-1"></i> Essay / Uraian</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium">Ada Essay?</label>
+                            <select id="cfg-essay-active" class="w-full p-2 border rounded" onchange="toggleInputs('essay'); updateTotalScorePreview()">
+                                <option value="yes" selected>Ada</option>
+                                <option value="no">Tidak Ada</option>
+                            </select>
+                        </div>
+                        <div id="cfg-essay-inputs" class="space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium">Maks Total Poin Essay</label>
+                                <input type="number" id="cfg-essay-max" value="40" class="w-full p-2 border rounded focus:ring-2 focus:ring-orange-500" onchange="updateTotalScorePreview()">
+                                <p class="text-xs text-gray-500 mt-1">*Misal 5 soal @8 poin = 40.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gray-800 text-white p-4 rounded-lg flex justify-between items-center mb-6">
+                <span class="font-semibold">Estimasi Nilai Sempurna (Total):</span>
+                <span id="total-score-preview" class="text-2xl font-bold text-yellow-400">100</span>
+            </div>
+
+            <div class="flex justify-end">
+                <button onclick="goToKeyStep()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold shadow transition flex items-center">
+                    Input Kunci Jawaban <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- STEP 2: INPUT KUNCI JAWABAN PG (LAYOUT LJK) -->
+        <div id="view-key" class="hidden bg-white rounded-xl shadow-md p-6">
+            <h2 class="text-2xl font-bold mb-4 border-b pb-2 text-blue-800">2. Kunci Jawaban PG</h2>
+            <p class="mb-4 text-gray-600">Klik huruf jawaban yang benar. Susunan dibuat vertikal 1-15 agar sesuai LJK.</p>
+            
+            <div class="overflow-x-auto custom-scroll pb-4">
+                <div id="key-container" class="flex gap-6 min-w-max">
+                    <!-- Columns Generated by JS -->
+                </div>
+            </div>
+
+            <div class="flex justify-between mt-6 pt-4 border-t">
+                <button onclick="showView('view-config')" class="text-gray-500 hover:text-gray-700 font-medium">
+                    <i class="fas fa-arrow-left"></i> Kembali
+                </button>
+                <button onclick="goToClassStep()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold shadow transition">
+                    Lanjut ke Data Kelas <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- STEP 3: DATA KELAS & SISWA -->
+        <div id="view-class" class="hidden bg-white rounded-xl shadow-md p-6">
+            <h2 class="text-2xl font-bold mb-4 border-b pb-2 text-blue-800">3. Data Kelas & Siswa</h2>
+            
+            <div class="mb-4">
+                <label class="block font-semibold mb-2">Nama Kelas (Contoh: 8A)</label>
+                <input type="text" id="input-class-name" class="w-full md:w-1/3 p-2 border rounded focus:ring-2 focus:ring-blue-500" placeholder="Masukkan nama kelas...">
+            </div>
+
+            <div class="mb-6">
+                <label class="block font-semibold mb-2">Daftar Nama Siswa</label>
+                <p class="text-sm text-gray-500 mb-2">Salin (Copy) nama siswa dari Excel/Spreadsheet dan Tempel (Paste) di bawah ini (satu nama per baris).</p>
+                <textarea id="input-students" rows="10" class="w-full p-3 border rounded font-mono text-sm focus:ring-2 focus:ring-blue-500" placeholder="Asep Surasep&#10;Budi Santoso&#10;Cici Paramida..."></textarea>
+            </div>
+
+            <div class="flex justify-between">
+                <button onclick="showView('view-key')" class="text-gray-500 hover:text-gray-700 font-medium">
+                    <i class="fas fa-arrow-left"></i> Kembali
+                </button>
+                <button onclick="startGrading()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold shadow transition animate-pulse">
+                    <i class="fas fa-play mr-2"></i> MULAI KOREKSI
+                </button>
+            </div>
+        </div>
+
+        <!-- STEP 4: PROSES KOREKSI (GRADING) - LAYOUT LJK -->
+        <div id="view-grading" class="hidden bg-white rounded-xl shadow-md p-6 relative">
+            <!-- Progress Bar -->
+            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-6">
+                <div id="grading-progress" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+            </div>
+
+            <div class="flex justify-between items-end mb-6 border-b pb-4">
+                <div>
+                    <span class="text-sm text-gray-500 uppercase tracking-wider" id="grading-class-name">Kelas 8A</span>
+                    <h2 class="text-3xl font-bold text-gray-800" id="current-student-name">Nama Siswa</h2>
+                </div>
+                <div class="text-right">
+                    <span class="text-sm text-gray-500">Siswa ke-</span>
+                    <p class="text-xl font-bold"><span id="current-index">1</span> / <span id="total-students">40</span></p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Kolom Kiri: Input Jawaban PG Siswa (Lebar lebih besar) -->
+                <div class="lg:col-span-8 bg-blue-50 rounded-xl p-4 border border-blue-100">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-bold text-blue-800"><i class="fas fa-list-ul mr-2"></i>Jawaban PG Siswa</h3>
+                        <span class="text-xs bg-white px-2 py-1 rounded text-blue-600 border">Layout LJK (1-15)</span>
+                    </div>
+                    
+                    <div class="overflow-x-auto custom-scroll pb-2">
+                        <div id="grading-pg-container" class="flex gap-4 min-w-max">
+                            <!-- Generated by JS (Columns) -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kolom Kanan: Input Nilai Manual & Kontrol -->
+                <div class="lg:col-span-4 space-y-4 flex flex-col h-full">
+                    <!-- Skor PG Realtime -->
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center">
+                        <div>
+                            <p class="text-xs text-gray-500 uppercase font-bold">Skor PG</p>
+                            <h4 class="text-3xl font-bold text-blue-900" id="live-pg-score">0</h4>
+                        </div>
+                        <i class="fas fa-calculator text-blue-200 text-4xl"></i>
+                    </div>
+
+                    <!-- Input Isian -->
+                    <div id="grading-short-section" class="hidden bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <label class="block font-bold text-green-700 mb-1 text-sm">Skor Isian Singkat</label>
+                        <div class="flex items-center">
+                            <input type="number" id="input-score-short" class="w-full p-2 text-xl border rounded focus:ring-green-500 font-bold" min="0" placeholder="0">
+                            <span class="ml-2 text-gray-400 text-sm whitespace-nowrap">/ <span id="lbl-max-short">0</span></span>
+                        </div>
+                    </div>
+
+                    <!-- Input Essay -->
+                    <div id="grading-essay-section" class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <label class="block font-bold text-orange-700 mb-1 text-sm">Skor Essay</label>
+                        <div class="flex items-center">
+                            <input type="number" id="input-score-essay" class="w-full p-2 text-xl border rounded focus:ring-orange-500 font-bold" min="0" placeholder="0">
+                            <span class="ml-2 text-gray-400 text-sm whitespace-nowrap">/ <span id="lbl-max-essay">0</span></span>
+                        </div>
+                    </div>
+
+                    <!-- Spacer untuk mendorong tombol ke bawah -->
+                    <div class="flex-grow"></div>
+
+                    <!-- Navigasi -->
+                    <div class="pt-2 flex flex-col gap-2">
+                        <button onclick="saveAndNext()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-lg font-bold shadow-lg text-lg flex justify-center items-center group transition transform active:scale-95">
+                            LANJUT <span class="bg-blue-800 text-xs px-2 py-0.5 rounded ml-2 group-hover:bg-blue-900">ENTER</span> <i class="fas fa-chevron-right ml-2 group-hover:translate-x-1 transition"></i>
+                        </button>
+                        <button onclick="prevStudent()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded font-medium text-sm flex justify-center items-center">
+                            <i class="fas fa-chevron-left mr-1"></i> Sebelumnya
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 5: REKAP NILAI -->
+        <div id="view-recap" class="hidden bg-white rounded-xl shadow-md p-6">
+            <div class="text-center mb-8 border-b-2 border-blue-100 pb-6">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-yellow-100 rounded-full mb-3 text-yellow-600 shadow-sm">
+                    <i class="fas fa-medal text-3xl"></i>
+                </div>
+                <h2 class="text-3xl font-black text-gray-800 uppercase tracking-wide">
+                    REKAPITULASI NILAI <span class="text-blue-700" id="recap-title-class">KELAS X</span>
+                </h2>
+                <p class="text-gray-500 mt-1">Total Siswa: <span id="recap-total-students" class="font-bold"></span></p>
+            </div>
+
+            <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-3">
+                 <div class="flex gap-2">
+                     <button onclick="toggleSort()" class="bg-blue-50 text-blue-700 hover:bg-blue-100 px-4 py-2 rounded font-medium text-sm border border-blue-200 transition">
+                        <i class="fas fa-sort mr-1"></i> <span id="sort-mode-display">Ranking (Tertinggi)</span>
+                    </button>
+                 </div>
+                 <div class="flex gap-2">
+                     <button onclick="downloadCSV()" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded shadow flex items-center font-bold transition">
+                        <i class="fas fa-file-excel mr-2"></i> Download CSV
+                    </button>
+                    <button onclick="nextClassSameKey()" class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded shadow flex items-center font-bold transition">
+                        <i class="fas fa-sync-alt mr-2"></i> Kelas Berikutnya
+                    </button>
+                    <button onclick="location.reload()" class="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded shadow flex items-center transition" title="Reset Total">
+                        <i class="fas fa-power-off"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Statistik -->
+            <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-lg border text-center">
+                    <p class="text-xs text-gray-500 uppercase font-bold">Rata-rata</p>
+                    <p class="text-2xl font-bold text-gray-700" id="stat-avg">0</p>
+                </div>
+                <div class="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border border-green-200 text-center">
+                    <p class="text-xs text-green-600 uppercase font-bold">Tertinggi</p>
+                    <p class="text-2xl font-bold text-green-700" id="stat-max">0</p>
+                </div>
+                <div class="bg-gradient-to-br from-red-50 to-red-100 p-4 rounded-lg border border-red-200 text-center">
+                    <p class="text-xs text-red-600 uppercase font-bold">Terendah</p>
+                    <p class="text-2xl font-bold text-red-700" id="stat-min">0</p>
+                </div>
+            </div>
+
+            <!-- Tabel -->
+            <div class="overflow-x-auto rounded-lg border shadow-sm">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-800 text-white text-sm uppercase tracking-wider">
+                            <th class="p-4 border-b border-gray-700">Rank</th>
+                            <th class="p-4 border-b border-gray-700">Nama Siswa</th>
+                            <th class="p-4 border-b border-gray-700 text-center">PG</th>
+                            <th class="p-4 border-b border-gray-700 text-center">Isian</th>
+                            <th class="p-4 border-b border-gray-700 text-center">Essay</th>
+                            <th class="p-4 border-b border-gray-700 text-center font-bold bg-gray-700">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recap-table-body" class="text-sm bg-white divide-y divide-gray-200">
+                        <!-- Rows -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal Panduan -->
+    <div id="modal-guide" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm transition-opacity duration-300">
+        <div class="bg-white w-full max-w-3xl rounded-xl shadow-2xl overflow-hidden m-4 flex flex-col max-h-[90vh]">
+            <!-- Modal Header -->
+            <div class="bg-blue-800 text-white p-5 flex justify-between items-center">
+                <h2 class="text-2xl font-bold"><i class="fas fa-book-reader mr-2"></i>Panduan Penggunaan</h2>
+                <button onclick="toggleGuide()" class="text-white hover:text-gray-300 transition">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            
+            <!-- Modal Body (Scrollable) -->
+            <div class="p-6 overflow-y-auto custom-scroll text-gray-700 space-y-6">
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+                    <p class="font-bold text-blue-800">Selamat Datang, Bapak/Ibu Guru!</p>
+                    <p class="text-sm mt-1">Aplikasi ini dibuat untuk memudahkan proses koreksi nilai secara manual namun cepat, tanpa perlu koneksi internet (setelah halaman terbuka).</p>
+                </div>
+
+                <div class="space-y-4">
+                    <!-- Step 1 -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-10 h-10 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold text-lg">1</div>
+                        <div>
+                            <h3 class="font-bold text-lg text-gray-800">Atur Soal & Poin</h3>
+                            <p class="text-sm text-gray-600 mt-1">Masukkan jumlah soal PG dan bobot nilainya. Jika ada Essay/Isian, tentukan nilai maksimalnya. Usahakan "Estimasi Nilai Sempurna" bernilai <b class="text-green-600">100</b>.</p>
+                        </div>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-10 h-10 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold text-lg">2</div>
+                        <div>
+                            <h3 class="font-bold text-lg text-gray-800">Kunci Jawaban</h3>
+                            <p class="text-sm text-gray-600 mt-1">Masukkan kunci jawaban dengan mengklik huruf (A/B/C/D). Pastikan semua nomor sudah terisi kunci jawabannya.</p>
+                        </div>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-10 h-10 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold text-lg">3</div>
+                        <div>
+                            <h3 class="font-bold text-lg text-gray-800">Data Siswa</h3>
+                            <p class="text-sm text-gray-600 mt-1">Siapkan data siswa di Excel. Salin (Copy) hanya kolom nama siswa, lalu Tempel (Paste) ke dalam kotak yang disediakan di aplikasi.</p>
+                        </div>
+                    </div>
+
+                     <!-- Step 4 -->
+                     <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-10 h-10 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold text-lg">4</div>
+                        <div>
+                            <h3 class="font-bold text-lg text-gray-800">Proses Mengoreksi</h3>
+                            <p class="text-sm text-gray-600 mt-1">
+                                - Klik jawaban yang dipilih siswa (misal siswa menjawab A).<br>
+                                - Nilai PG akan otomatis terhitung.<br>
+                                - Masukkan nilai Isian/Essay secara manual (jika ada).<br>
+                                - Tekan tombol <b>"LANJUT (Enter)"</b> untuk ke siswa berikutnya.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Step 5 -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-10 h-10 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold text-lg">5</div>
+                        <div>
+                            <h3 class="font-bold text-lg text-gray-800">Rekap & Simpan</h3>
+                            <p class="text-sm text-gray-600 mt-1">Setelah selesai, Anda akan melihat peringkat siswa. Klik <b>"Download CSV"</b> untuk menyimpan nilai ke Excel. Jika ingin lanjut kelas lain dengan soal yang sama, klik tombol ungu.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="bg-gray-100 p-4 text-center border-t">
+                <button onclick="toggleGuide()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-10 rounded-lg shadow transition w-full md:w-auto">
+                    Saya Mengerti, Tutup Panduan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t mt-8 py-6">
+        <div class="container mx-auto px-4 text-center">
+            <p class="font-bold text-gray-800">Dibuat oleh Muhammad Hizbi Audah, S.Kom</p>
+            <p class="text-sm text-gray-500">Guru Informatika SMPN 2 Cibinong</p>
+            <p class="text-xs text-gray-400 mt-2">v1.3 &copy; 2025 - Perbaikan Fungsi Tombol</p>
+        </div>
+    </footer>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // --- GLOBAL STATE ---
+        let config = {
+            pgCount: 30,
+            pgWeight: 2,
+            hasShort: false,
+            shortMax: 0,
+            hasEssay: true,
+            essayMax: 40
+        };
+
+        let keyAnswers = {}; // Format: { 1: 'A', 2: 'C', ... }
+        let classData = {
+            name: '',
+            students: [] 
+        };
+        let currentStudentIdx = 0;
+        let isSortDesc = true;
+
+        // --- NAVIGATION & UI ---
+        function showView(viewId) {
+            document.querySelectorAll('main > div').forEach(div => div.classList.add('hidden'));
+            const target = document.getElementById(viewId);
+            if(target) {
+                target.classList.remove('hidden');
+                window.scrollTo(0, 0);
+            } else {
+                console.error("View ID not found:", viewId);
+            }
+        }
+
+        // --- MODAL GUIDE ---
+        function toggleGuide() {
+            const modal = document.getElementById('modal-guide');
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function toggleInputs(type) {
+            const isActive = document.getElementById(`cfg-${type}-active`).value === 'yes';
+            const el = document.getElementById(`cfg-${type}-inputs`);
+            if(isActive) el.classList.remove('hidden');
+            else el.classList.add('hidden');
+        }
+
+        // --- STEP 1: CONFIG ---
+        function updateTotalScorePreview() {
+            const pgCount = parseInt(document.getElementById('cfg-pg-count').value) || 0;
+            const pgWeight = parseFloat(document.getElementById('cfg-pg-weight').value) || 0;
+            
+            let shortMax = 0;
+            if(document.getElementById('cfg-short-active').value === 'yes') {
+                shortMax = parseFloat(document.getElementById('cfg-short-max').value) || 0;
+            }
+
+            let essayMax = 0;
+            if(document.getElementById('cfg-essay-active').value === 'yes') {
+                essayMax = parseFloat(document.getElementById('cfg-essay-max').value) || 0;
+            }
+
+            const total = (pgCount * pgWeight) + shortMax + essayMax;
+            const display = document.getElementById('total-score-preview');
+            display.innerText = total;
+            
+            if(total === 100) display.className = "text-2xl font-bold text-green-500";
+            else display.className = "text-2xl font-bold text-red-500";
+        }
+
+        function goToKeyStep() {
+            // Save config
+            config.pgCount = parseInt(document.getElementById('cfg-pg-count').value) || 30; 
+            config.pgWeight = parseFloat(document.getElementById('cfg-pg-weight').value) || 1;
+            config.hasShort = document.getElementById('cfg-short-active').value === 'yes';
+            config.shortMax = parseFloat(document.getElementById('cfg-short-max').value) || 0;
+            config.hasEssay = document.getElementById('cfg-essay-active').value === 'yes';
+            config.essayMax = parseFloat(document.getElementById('cfg-essay-max').value) || 0;
+
+            renderKeyInputsLJK();
+            showView('view-key');
+        }
+
+        // --- STEP 2: KEY INPUTS (LJK LAYOUT 1-15 Vertical) ---
+        function renderKeyInputsLJK() {
+            const container = document.getElementById('key-container');
+            if(!container) return;
+            container.innerHTML = '';
+            
+            const totalQuestions = config.pgCount;
+            // Defensive: ensure positive count
+            if (totalQuestions <= 0) {
+                container.innerHTML = '<p class="text-red-500">Jumlah soal harus lebih dari 0</p>';
+                return;
+            }
+
+            const itemsPerCol = 15;
+            const totalCols = Math.ceil(totalQuestions / itemsPerCol);
+
+            for (let col = 0; col < totalCols; col++) {
+                // Column Container
+                const colDiv = document.createElement('div');
+                colDiv.className = "flex flex-col gap-1 min-w-[280px] bg-gray-50 p-2 rounded border border-gray-200";
+
+                const start = (col * itemsPerCol) + 1;
+                const end = Math.min((col + 1) * itemsPerCol, totalQuestions);
+
+                // Column Header
+                const colHeader = document.createElement('div');
+                colHeader.className = "text-center font-bold text-xs text-gray-500 mb-2 uppercase tracking-widest border-b pb-1";
+                colHeader.innerText = `No ${start} - ${end}`;
+                colDiv.appendChild(colHeader);
+
+                for (let i = start; i <= end; i++) {
+                    const rowDiv = document.createElement('div');
+                    rowDiv.className = "flex items-center gap-2";
+
+                    // Number Label
+                    const numSpan = document.createElement('span');
+                    numSpan.className = "w-6 text-right text-xs font-bold text-gray-600";
+                    numSpan.innerText = i + ".";
+                    rowDiv.appendChild(numSpan);
+
+                    // Button Group
+                    const btnGroup = document.createElement('div');
+                    btnGroup.className = "flex gap-1";
+                    
+                    ['A','B','C','D'].forEach(opt => {
+                        const btn = document.createElement('button');
+                        const isSelected = keyAnswers[i] === opt;
+                        btn.className = `w-7 h-7 text-xs rounded border transition font-medium ${isSelected ? 'btn-selected' : 'btn-default'}`;
+                        btn.innerText = opt;
+                        btn.onclick = () => {
+                            keyAnswers[i] = opt;
+                            renderKeyInputsLJK(); 
+                        };
+                        btnGroup.appendChild(btn);
+                    });
+
+                    rowDiv.appendChild(btnGroup);
+                    colDiv.appendChild(rowDiv);
+                }
+                container.appendChild(colDiv);
+            }
+        }
+
+        function goToClassStep() {
+            // Validate Key
+            let empty = 0;
+            for(let i=1; i<=config.pgCount; i++) {
+                if(!keyAnswers[i]) empty++;
+            }
+            if(empty > 0) {
+                if(!confirm(`Peringatan: Ada ${empty} soal PG belum memiliki kunci jawaban. Lanjutkan?`)) return;
+            }
+            showView('view-class');
+        }
+
+        // --- STEP 3: CLASS SETUP (FIXED & ROBUST) ---
+        function startGrading() {
+            try {
+                const rawNames = document.getElementById('input-students').value.trim();
+                const clsName = document.getElementById('input-class-name').value.trim();
+
+                if(!clsName || !rawNames) {
+                    alert("Mohon isi Nama Kelas dan Daftar Siswa.");
+                    return;
+                }
+
+                // Reset class data
+                classData.name = clsName;
+                
+                // Parse students safely
+                const lines = rawNames.split('\n');
+                classData.students = [];
+                
+                lines.forEach(line => {
+                    const cleanName = line.trim();
+                    if(cleanName) {
+                        classData.students.push({
+                            name: cleanName,
+                            pgAnswers: {}, 
+                            shortScore: 0,
+                            essayScore: 0,
+                            pgScore: 0,
+                            totalScore: 0,
+                            isGraded: false
+                        });
+                    }
+                });
+
+                if(classData.students.length === 0) {
+                    alert("Daftar siswa kosong atau format nama tidak valid.");
+                    return;
+                }
+
+                // Update UI Labels
+                const headerDisplay = document.getElementById('header-class-display');
+                if(headerDisplay) headerDisplay.innerText = `Kelas: ${classData.name}`;
+                
+                document.getElementById('grading-class-name').innerText = classData.name;
+                document.getElementById('total-students').innerText = classData.students.length;
+
+                // Setup UI visibility based on config
+                // Gunakan try-catch per elemen agar error satu elemen tidak mematikan fungsi
+                try {
+                    const shortSection = document.getElementById('grading-short-section');
+                    if(shortSection) shortSection.classList.toggle('hidden', !config.hasShort);
+                    document.getElementById('lbl-max-short').innerText = config.shortMax || 0;
+                    
+                    const essaySection = document.getElementById('grading-essay-section');
+                    if(essaySection) essaySection.classList.toggle('hidden', !config.hasEssay);
+                    document.getElementById('lbl-max-essay').innerText = config.essayMax || 0;
+                } catch(e) {
+                    console.warn("UI Config Error:", e);
+                }
+
+                currentStudentIdx = 0;
+                
+                // Load first student
+                loadStudentForGrading(0);
+                
+                // Switch view
+                showView('view-grading');
+
+            } catch (err) {
+                console.error("Critical Error in startGrading:", err);
+                alert("Terjadi kesalahan sistem saat memulai koreksi:\n" + err.message + "\n\nCoba refresh halaman.");
+            }
+        }
+
+        // --- STEP 4: GRADING LOOP (LJK Layout) ---
+        function loadStudentForGrading(idx) {
+            try {
+                if(idx < 0 || idx >= classData.students.length) return;
+                
+                const student = classData.students[idx];
+                document.getElementById('current-student-name').innerText = student.name;
+                document.getElementById('current-index').innerText = idx + 1;
+                
+                // Progress bar
+                const pct = ((idx) / classData.students.length) * 100;
+                document.getElementById('grading-progress').style.width = `${pct}%`;
+
+                // Reset manual inputs safely
+                const inputShort = document.getElementById('input-score-short');
+                const inputEssay = document.getElementById('input-score-essay');
+                
+                if(inputShort) inputShort.value = (student.shortScore === 0 ? '0' : (student.shortScore || ''));
+                if(inputEssay) inputEssay.value = (student.essayScore === 0 ? '0' : (student.essayScore || ''));
+
+                renderGradingInputsLJK(student);
+                
+                // Update Live PG Score Display
+                calculateStudentPG(student);
+                document.getElementById('live-pg-score').innerText = student.pgScore;
+
+            } catch (err) {
+                console.error("Error loading student:", err);
+                alert("Gagal memuat data siswa: " + err.message);
+            }
+        }
+
+        function renderGradingInputsLJK(student) {
+            const container = document.getElementById('grading-pg-container');
+            if(!container) return;
+            container.innerHTML = '';
+
+            const totalQuestions = config.pgCount;
+            const itemsPerCol = 15;
+            const totalCols = Math.ceil(totalQuestions / itemsPerCol);
+
+            if (totalQuestions <= 0) return;
+
+            for (let col = 0; col < totalCols; col++) {
+                // Column Container
+                const colDiv = document.createElement('div');
+                colDiv.className = "flex flex-col gap-1 min-w-[280px] bg-white p-3 rounded-lg border border-gray-200 shadow-sm";
+
+                const start = (col * itemsPerCol) + 1;
+                const end = Math.min((col + 1) * itemsPerCol, totalQuestions);
+
+                 // Column Header
+                const colHeader = document.createElement('div');
+                colHeader.className = "text-center font-bold text-xs text-blue-500 mb-2 uppercase tracking-widest border-b border-blue-100 pb-1";
+                colHeader.innerText = `No ${start} - ${end}`;
+                colDiv.appendChild(colHeader);
+
+                for (let i = start; i <= end; i++) {
+                    const rowDiv = document.createElement('div');
+                    rowDiv.className = "flex items-center gap-2";
+
+                    // Number Label Check
+                    const hasAnswer = student.pgAnswers && student.pgAnswers[i];
+                    // Correct logic: Key exists AND Student matches Key
+                    const isCorrect = keyAnswers[i] && hasAnswer === keyAnswers[i];
+                    
+                    let numColor = 'text-gray-400';
+                    if(hasAnswer) {
+                        numColor = isCorrect ? 'text-green-600' : 'text-red-500';
+                    }
+                    
+                    const numSpan = document.createElement('span');
+                    numSpan.className = `w-6 text-right text-xs font-bold ${numColor}`;
+                    numSpan.innerText = i + ".";
+                    rowDiv.appendChild(numSpan);
+
+                    // Button Group
+                    const btnGroup = document.createElement('div');
+                    btnGroup.className = "flex gap-1";
+                    
+                    ['A','B','C','D'].forEach(opt => {
+                        const btn = document.createElement('button');
+                        const isSelected = student.pgAnswers && student.pgAnswers[i] === opt;
+                        
+                        let btnClass = `w-7 h-7 text-xs rounded border transition font-medium `;
+                        if(isSelected) {
+                            btnClass += "bg-blue-600 text-white border-blue-600 shadow-md transform scale-105 font-bold";
+                        } else {
+                            btnClass += "bg-white text-gray-400 border-gray-100 hover:bg-gray-50 hover:text-gray-600";
+                        }
+
+                        btn.className = btnClass;
+                        btn.innerText = opt;
+                        btn.onclick = () => {
+                            if(!student.pgAnswers) student.pgAnswers = {};
+                            student.pgAnswers[i] = opt;
+                            calculateStudentPG(student); 
+                            renderGradingInputsLJK(student); 
+                            document.getElementById('live-pg-score').innerText = student.pgScore;
+                        };
+                        btnGroup.appendChild(btn);
+                    });
+
+                    rowDiv.appendChild(btnGroup);
+                    colDiv.appendChild(rowDiv);
+                }
+                container.appendChild(colDiv);
+            }
+        }
+
+        function calculateStudentPG(student) {
+            let correctCount = 0;
+            // Ensure config.pgCount is number
+            const count = parseInt(config.pgCount) || 30;
+            const weight = parseFloat(config.pgWeight) || 1;
+
+            if(!student.pgAnswers) student.pgAnswers = {};
+
+            for(let i=1; i<=count; i++) {
+                if(keyAnswers[i] && student.pgAnswers[i] === keyAnswers[i]) {
+                    correctCount++;
+                }
+            }
+            // Precision handling
+            student.pgScore = parseFloat((correctCount * weight).toFixed(2));
+        }
+
+        function saveAndNext() {
+            try {
+                const student = classData.students[currentStudentIdx];
+                
+                // Get manual scores. Handle empty input as 0.
+                const sScore = document.getElementById('input-score-short').value;
+                const eScore = document.getElementById('input-score-essay').value;
+                
+                let sScoreVal = parseFloat(sScore);
+                if(isNaN(sScoreVal)) sScoreVal = 0;
+
+                let eScoreVal = parseFloat(eScore);
+                if(isNaN(eScoreVal)) eScoreVal = 0;
+
+                // FIX: Validasi tidak memblokir (return), hanya konfirmasi jika melebihi batas
+                if(config.hasShort && config.shortMax > 0 && sScoreVal > config.shortMax) {
+                    if(!confirm(`PERINGATAN: Poin Isian (${sScoreVal}) melebihi batas maksimal (${config.shortMax}).\n\nTetap lanjutkan?`)) {
+                        document.getElementById('input-score-short').focus();
+                        return;
+                    }
+                }
+                if(config.hasEssay && config.essayMax > 0 && eScoreVal > config.essayMax) {
+                     if(!confirm(`PERINGATAN: Poin Essay (${eScoreVal}) melebihi batas maksimal (${config.essayMax}).\n\nTetap lanjutkan?`)) {
+                        document.getElementById('input-score-essay').focus();
+                        return;
+                    }
+                }
+
+                student.shortScore = sScoreVal;
+                student.essayScore = eScoreVal;
+                student.totalScore = parseFloat((student.pgScore + sScoreVal + eScoreVal).toFixed(2));
+                student.isGraded = true;
+
+                if(currentStudentIdx < classData.students.length - 1) {
+                    currentStudentIdx++;
+                    loadStudentForGrading(currentStudentIdx);
+                } else {
+                    finishGrading();
+                }
+            } catch(e) {
+                console.error("Error saving:", e);
+                alert("Gagal menyimpan nilai: " + e.message);
+            }
+        }
+
+        function prevStudent() {
+            if(currentStudentIdx > 0) {
+                currentStudentIdx--;
+                loadStudentForGrading(currentStudentIdx);
+            }
+        }
+
+        // Add keyboard shortcut for "Next"
+        document.addEventListener('keydown', function(event) {
+            // Check if view-grading is visible
+            const gradingView = document.getElementById('view-grading');
+            if (event.key === "Enter" && gradingView && !gradingView.classList.contains('hidden')) {
+                 saveAndNext();
+            }
+        });
+
+        // --- STEP 5: RECAP ---
+        function finishGrading() {
+            if(confirm("Semua siswa telah dinilai. Lihat Rekap?")) {
+                renderRecapTable();
+                showView('view-recap');
+            }
+        }
+
+        function renderRecapTable() {
+            const tbody = document.getElementById('recap-table-body');
+            tbody.innerHTML = '';
+            
+            document.getElementById('recap-title-class').innerText = `KELAS ${classData.name}`;
+            document.getElementById('recap-total-students').innerText = classData.students.length;
+
+            // Sort Data
+            let sortedData = [...classData.students];
+            if(isSortDesc) {
+                sortedData.sort((a, b) => b.totalScore - a.totalScore); // Rank Desc
+                document.getElementById('sort-mode-display').innerText = "Ranking (Tertinggi)";
+            } else {
+                sortedData.sort((a, b) => a.name.localeCompare(b.name)); // Name Asc
+                document.getElementById('sort-mode-display').innerText = "Nama (A-Z)";
+            }
+
+            // Stats
+            const totals = classData.students.map(s => s.totalScore);
+            const max = totals.length ? Math.max(...totals) : 0;
+            const min = totals.length ? Math.min(...totals) : 0;
+            const sum = totals.reduce((a, b) => a + b, 0);
+            const avg = totals.length ? (sum / totals.length).toFixed(1) : 0;
+
+            document.getElementById('stat-avg').innerText = avg;
+            document.getElementById('stat-max').innerText = max;
+            document.getElementById('stat-min').innerText = min;
+
+            // Render Rows
+            sortedData.forEach((s, i) => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b hover:bg-gray-50 transition";
+                
+                // Rank Styling
+                let rankClass = "bg-white text-gray-500";
+                let badge = `<span class="font-mono">#${i+1}</span>`;
+                
+                // Only apply colors if sorting by Score
+                if(isSortDesc) {
+                    if(i === 0) { rankClass = "rank-1 text-yellow-800"; badge = '<i class="fas fa-crown text-yellow-600"></i>'; }
+                    if(i === 1) { rankClass = "rank-2 text-gray-600"; badge = '<i class="fas fa-medal text-gray-500"></i>'; }
+                    if(i === 2) { rankClass = "rank-3 text-orange-800"; badge = '<i class="fas fa-medal text-orange-600"></i>'; }
+                }
+
+                tr.innerHTML = `
+                    <td class="p-4 ${rankClass} font-bold text-center text-lg w-16">${badge}</td>
+                    <td class="p-4 font-semibold text-gray-700">${s.name}</td>
+                    <td class="p-4 text-center text-gray-500">${s.pgScore}</td>
+                    <td class="p-4 text-center text-gray-500">${s.shortScore}</td>
+                    <td class="p-4 text-center text-gray-500">${s.essayScore}</td>
+                    <td class="p-4 text-center font-black text-blue-900 text-xl bg-gray-50">${s.totalScore}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function toggleSort() {
+            isSortDesc = !isSortDesc;
+            renderRecapTable();
+        }
+
+        // --- EXPORT & NEXT CLASS ---
+
+        function downloadCSV() {
+            const delimiter = ";";
+            
+            // Construct Header Row
+            let header = ["Ranking", "Nama Siswa", "Kelas", "TOTAL NILAI", "Skor PG", "Skor Isian", "Skor Essay"];
+            // Add PG numbers to header
+            for(let i=1; i<=config.pgCount; i++) {
+                header.push(`No.${i}`);
+            }
+            
+            let csvString = header.join(delimiter) + "\r\n";
+
+            // Data Rows (Export urutan Abjad agar mudah dicocokkan dengan absen)
+            let exportData = [...classData.students].sort((a, b) => a.name.localeCompare(b.name));
+
+            exportData.forEach((s, idx) => {
+                let pg = s.pgScore.toString().replace('.', ',');
+                let short = s.shortScore.toString().replace('.', ',');
+                let essay = s.essayScore.toString().replace('.', ',');
+                let total = s.totalScore.toString().replace('.', ',');
+
+                let row = [
+                    idx + 1,
+                    `"${s.name}"`, 
+                    classData.name,
+                    total,
+                    pg,
+                    short,
+                    essay
+                ];
+
+                for(let i=1; i<=config.pgCount; i++) {
+                    row.push(s.pgAnswers[i] || "-");
+                }
+                
+                csvString += row.join(delimiter) + "\r\n";
+            });
+
+            const blob = new Blob(["\ufeff" + csvString], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            const filename = `Nilai_${classData.name}_Informatika.csv`;
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function nextClassSameKey() {
+            if(confirm("Anda yakin ingin lanjut ke kelas berikutnya? Kunci jawaban akan disimpan, tetapi data nilai kelas ini akan dihapus dari layar (pastikan sudah download CSV).")) {
+                classData.name = "";
+                classData.students = [];
+                currentStudentIdx = 0;
+                
+                document.getElementById('input-class-name').value = "";
+                document.getElementById('input-students').value = "";
+                
+                showView('view-class');
+            }
+        }
+
+        // Initialize view
+        showView('view-config');
+        toggleInputs('short'); 
+        toggleInputs('essay');
+    </script>
